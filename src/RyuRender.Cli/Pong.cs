@@ -1,15 +1,18 @@
-using System.Runtime.InteropServices;
 using static SDL2.SDL;
-using static RyuRender.Cli.Constants;
 
 namespace RyuRender.Cli;
 
 public sealed class Pong : IDisposable
 {
+    private const int ScreenWidth = 1280;
+    private const int ScreenHeight = 720;
+    private const int BallSize = 32;
+    private const int PaddleWidth = 32;
+    private const int PaddleHeight = 128;
+    private const int PaddleOffset = 64;
+
     private readonly nint _pWindow;
-    private readonly nint _pSurface;
-    private readonly uint _black;
-    private readonly uint _white;
+    private readonly nint _pRenderer;
     private SDL_Rect _ball;
     private SDL_Rect _paddle1;
     private SDL_Rect _paddle2;
@@ -33,12 +36,8 @@ public sealed class Pong : IDisposable
 
         if (_pWindow == IntPtr.Zero) throw new SDLException();
 
-        _pSurface = SDL_GetWindowSurface(_pWindow);
-        if (_pSurface == IntPtr.Zero) throw new SDLException();
-
-        var surface = Marshal.PtrToStructure<SDL_Surface>(_pSurface);
-        _black = SDL_MapRGB(surface.format, 0x00, 0x00, 0x00);
-        _white = SDL_MapRGB(surface.format, 0xff, 0xff, 0xff);
+        _pRenderer = SDL_CreateRenderer(_pWindow, -1, SDL_RendererFlags.SDL_RENDERER_SOFTWARE);
+        if (_pRenderer == IntPtr.Zero) throw new SDLException();
 
         _ball = new SDL_Rect
         {
@@ -67,6 +66,8 @@ public sealed class Pong : IDisposable
 
     public void Dispose()
     {
+        if (_pRenderer != IntPtr.Zero)
+            SDL_DestroyRenderer(_pRenderer);
         if (_pWindow != IntPtr.Zero)
             SDL_DestroyWindow(_pWindow);
 
@@ -193,10 +194,12 @@ public sealed class Pong : IDisposable
 
     private void Render()
     {
-        SDL_FillRect(_pSurface, IntPtr.Zero, _black);
-        SDL_FillRect(_pSurface, ref _ball, _white);
-        SDL_FillRect(_pSurface, ref _paddle1, _white);
-        SDL_FillRect(_pSurface, ref _paddle2, _white);
-        SDL_UpdateWindowSurface(_pWindow);
+        SDL_SetRenderDrawColor(_pRenderer, 0x00, 0x00, 0x00, 0xff);
+        SDL_RenderClear(_pRenderer);
+        SDL_SetRenderDrawColor(_pRenderer, 0xff, 0xff, 0xff, 0xff);
+        SDL_RenderFillRect(_pRenderer, ref _ball);
+        SDL_RenderFillRect(_pRenderer, ref _paddle1);
+        SDL_RenderFillRect(_pRenderer, ref _paddle2);
+        SDL_RenderPresent(_pRenderer);
     }
 }
