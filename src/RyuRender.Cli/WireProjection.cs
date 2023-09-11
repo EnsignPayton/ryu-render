@@ -5,10 +5,14 @@ namespace RyuRender.Cli;
 
 public sealed class WireProjection : IDisposable
 {
-    private const int ScreenWidth = 1280;
-    private const int ScreenHeight = 720;
+    private const int ScreenWidth = 640;
+    private const int ScreenHeight = 640;
+    private const int FocalLength = 4;
 
-    private readonly Vector3[] _cubeVertices =
+    private readonly Vector3 _camPos = new(0, 0, -16);
+    private readonly Vector3 _camRot = Vector3.Zero;
+
+    private readonly Vector3[] _cubePoints =
     {
         new(-1, -1, -1),
         new(-1, -1, 1),
@@ -19,6 +23,8 @@ public sealed class WireProjection : IDisposable
         new(1, 1, -1),
         new(1, 1, 1),
     };
+
+    private float _cubeRot;
 
     private readonly nint _pWindow;
     private readonly nint _pRenderer;
@@ -72,19 +78,9 @@ public sealed class WireProjection : IDisposable
 
     private void Update()
     {
-        if (_cubeVertices[0].Z < 0)
-            _addingZ = true;
-        if (_cubeVertices[0].Z > 10)
-            _addingZ = false;
-
-        for (var i = 0; i < _cubeVertices.Length; i++)
-        {
-            var v = _cubeVertices[i];
-            if (_addingZ)
-                _cubeVertices[i] = v with { Z = v.Z + 1 };
-            else
-                _cubeVertices[i] = v with { Z = v.Z - 1 };
-        }
+        _cubeRot += MathF.PI / 16f;
+        if (_cubeRot > 2f * MathF.PI)
+            _cubeRot -= 2f * MathF.PI;
     }
 
     private void Render()
@@ -96,33 +92,67 @@ public sealed class WireProjection : IDisposable
         // Draw wireframe
         SDL_SetRenderDrawColor(_pRenderer, 0xff, 0xff, 0xff, 0xff);
 
-        Span<(int, int)> screenVerts = stackalloc (int, int)[8];
+        Span<Point2D> screenPoints = stackalloc Point2D[8];
 
-        for (var i = 0; i < _cubeVertices.Length; i++)
+        for (var i = 0; i < _cubePoints.Length; i++)
         {
-            var vert = _cubeVertices[i];
-            var hAngle = MathF.Atan(vert.X / vert.Z);
-            var vAngle = MathF.Atan(vert.Y / vert.Z);
-
-            var hFov = MathF.PI / 4F;
-            var vFov = hFov / 16f * 9f;
-            var hNorm = (hAngle + hFov) / (hFov * 2f);
-            var vNorm = (vAngle + vFov) / (vFov * 2f);
-            var hScreen = (int)(hNorm * ScreenWidth);
-            var vScreen = (int)(vNorm * ScreenHeight);
-            screenVerts[i] = (hScreen, vScreen);
+            var worldPoint = _cubePoints[i];
+            var rotated1 = RotateY(worldPoint, _cubeRot);
+            var rotated2 = RotateX(rotated1, _cubeRot);
+            var cameraPoint = WorldToCamera(rotated2);
+            var focalPoint = CameraToFocalPlane(cameraPoint);
+            var screenPoint = FocalToScreen(focalPoint);
+            screenPoints[i] = screenPoint;
         }
 
-        for (var i = 0; i < screenVerts.Length - 1; i++)
+        for (var i = 0; i < screenPoints.Length - 1; i++)
         {
-            for (var j = i + 1; j < screenVerts.Length; j++)
+            for (var j = i + 1; j < screenPoints.Length; j++)
             {
                 SDL_RenderDrawLine(_pRenderer,
-                    screenVerts[i].Item1, screenVerts[i].Item2,
-                    screenVerts[j].Item1, screenVerts[j].Item2);
+                    screenPoints[i].X, screenPoints[i].Y,
+                    screenPoints[j].X, screenPoints[j].Y);
             }
         }
 
         SDL_RenderPresent(_pRenderer);
     }
+
+    private static Vector3 RotateX(Vector3 point, float angle) => new(
+        MathF.Cos(angle) * point.X - MathF.Sin(angle) * point.Z,
+        point.Y,
+        MathF.Sin(angle) * point.X + MathF.Cos(angle) * point.Z);
+
+    private static Vector3 RotateY(Vector3 point, float angle) => new(
+        point.X,
+        MathF.Cos(angle) * point.Y - MathF.Sin(angle) * point.Z,
+        MathF.Sin(angle) * point.Y + MathF.Cos(angle) * point.Z);
+
+    private Vector3 WorldToCamera(Vector3 point)
+    {
+        // Translate from world to camera
+        var pointWrtCamera = point - _camPos;
+
+        // TODO: Rotate from world to camera
+        return pointWrtCamera;
+    }
+
+    private static Vector2 CameraToFocalPlane(Vector3 point)
+    {
+        if (point.Z < FocalLength)
+            return Vector2.Zero;
+
+        var u = FocalLength * point.X / point.Z;
+        var v = FocalLength * point.Y / point.Z;
+        return new Vector2(u, v);
+    }
+
+    private static Point2D FocalToScreen(Vector2 point)
+    {
+        var x = (int)(point.X * ScreenWidth) + (ScreenWidth / 2);
+        var y = (int)(point.Y * ScreenHeight) + (ScreenHeight / 2);
+        return new Point2D(x, y);
+    }
+
+    private readonly record struct Point2D(int X, int Y);
 }
