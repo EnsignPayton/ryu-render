@@ -133,7 +133,7 @@ public sealed class Pong : IDisposable
         Render();
 
         // Don't eat up the whole thread
-        Thread.Sleep(1);
+        // Thread.Sleep(1);
     }
 
     private void Update()

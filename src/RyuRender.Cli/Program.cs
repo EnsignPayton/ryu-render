@@ -1,4 +1,4 @@
 ﻿using RyuRender.Cli;
 
-using var pong = new Pong();
-pong.Start();
+using var game = new WireProjection();
+game.Start();
