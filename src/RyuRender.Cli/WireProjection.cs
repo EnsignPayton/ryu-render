@@ -9,8 +9,7 @@ public sealed class WireProjection : IDisposable
     private const int ScreenHeight = 640;
     private const int FocalLength = 4;
 
-    private readonly Vector3 _camPos = new(0, 0, -16);
-    private readonly Vector3 _camRot = Vector3.Zero;
+    private readonly Vector3 _camPos = new(0, 0, -24);
 
     private readonly Vector3[] _cubePoints =
     {
@@ -24,11 +23,11 @@ public sealed class WireProjection : IDisposable
         new(1, 1, 1),
     };
 
-    private float _cubeRot;
-
     private readonly nint _pWindow;
     private readonly nint _pRenderer;
-    private bool _addingZ;
+
+    private readonly Vector3 _camRot = Vector3.Zero;
+    private float _cubeRot;
 
     public WireProjection()
     {
@@ -72,13 +71,13 @@ public sealed class WireProjection : IDisposable
             Update();
             Render();
 
-            Thread.Sleep(100);
+            Thread.Sleep(10);
         }
     }
 
     private void Update()
     {
-        _cubeRot += MathF.PI / 16f;
+        _cubeRot += MathF.PI / 64f;
         if (_cubeRot > 2f * MathF.PI)
             _cubeRot -= 2f * MathF.PI;
     }
@@ -134,7 +133,11 @@ public sealed class WireProjection : IDisposable
         var pointWrtCamera = point - _camPos;
 
         // TODO: Rotate from world to camera
-        return pointWrtCamera;
+        if (_camRot == Vector3.Zero)
+            return pointWrtCamera;
+
+        // No Z because lazy
+        return RotateY(RotateX(pointWrtCamera, _camRot.X), _camRot.Y);
     }
 
     private static Vector2 CameraToFocalPlane(Vector3 point)
