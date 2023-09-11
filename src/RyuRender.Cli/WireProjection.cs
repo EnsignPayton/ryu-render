@@ -23,8 +23,8 @@ public sealed class WireProjection : IDisposable
         new(1, 1, 1),
     };
 
-    private readonly nint _pWindow;
-    private readonly nint _pRenderer;
+    private readonly Window _window;
+    private readonly Renderer _renderer;
 
     private readonly Vector3 _camRot = Vector3.Zero;
     private float _cubeRot;
@@ -33,24 +33,18 @@ public sealed class WireProjection : IDisposable
     {
         if (SDL_Init(SDL_INIT_VIDEO) < 0) throw new SDLException();
 
-        _pWindow = SDL_CreateWindow("Ryu Render",
+        _window = Window.Create("Ryu Render",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             ScreenWidth, ScreenHeight,
             SDL_WindowFlags.SDL_WINDOW_SHOWN);
 
-        if (_pWindow == IntPtr.Zero) throw new SDLException();
-
-        _pRenderer = SDL_CreateRenderer(_pWindow, -1, SDL_RendererFlags.SDL_RENDERER_SOFTWARE);
-        if (_pRenderer == IntPtr.Zero) throw new SDLException();
-
+        _renderer = Renderer.Create(_window, -1, SDL_RendererFlags.SDL_RENDERER_SOFTWARE);
     }
 
     public void Dispose()
     {
-        if (_pRenderer != IntPtr.Zero)
-            SDL_DestroyRenderer(_pRenderer);
-        if (_pWindow != IntPtr.Zero)
-            SDL_DestroyWindow(_pWindow);
+        _renderer.Destroy();
+        _window.Destroy();
 
         SDL_Quit();
     }
@@ -85,11 +79,11 @@ public sealed class WireProjection : IDisposable
     private void Render()
     {
         // Flush to black
-        SDL_SetRenderDrawColor(_pRenderer, 0x00, 0x00, 0x00, 0xff);
-        SDL_RenderClear(_pRenderer);
+        _renderer.SetDrawColor(0x00, 0x00, 0x00, 0xff);
+        _renderer.Clear();
 
         // Draw wireframe
-        SDL_SetRenderDrawColor(_pRenderer, 0xff, 0xff, 0xff, 0xff);
+        _renderer.SetDrawColor(0xff, 0xff, 0xff, 0xff);
 
         Span<Point2D> screenPoints = stackalloc Point2D[8];
 
@@ -108,13 +102,13 @@ public sealed class WireProjection : IDisposable
         {
             for (var j = i + 1; j < screenPoints.Length; j++)
             {
-                SDL_RenderDrawLine(_pRenderer,
+                _renderer.DrawLine(
                     screenPoints[i].X, screenPoints[i].Y,
                     screenPoints[j].X, screenPoints[j].Y);
             }
         }
 
-        SDL_RenderPresent(_pRenderer);
+        _renderer.Present();
     }
 
     private static Vector3 RotateX(Vector3 point, float angle) => new(

@@ -11,8 +11,8 @@ public sealed class Pong : IDisposable
     private const int PaddleHeight = 128;
     private const int PaddleOffset = 64;
 
-    private readonly nint _pWindow;
-    private readonly nint _pRenderer;
+    private readonly Window _window;
+    private readonly Renderer _renderer;
     private SDL_Rect _ball;
     private SDL_Rect _paddle1;
     private SDL_Rect _paddle2;
@@ -29,15 +29,12 @@ public sealed class Pong : IDisposable
     {
         if (SDL_Init(SDL_INIT_VIDEO) < 0) throw new SDLException();
 
-        _pWindow = SDL_CreateWindow("Ryu Render",
+        _window = Window.Create("Ryu Render",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             ScreenWidth, ScreenHeight,
             SDL_WindowFlags.SDL_WINDOW_SHOWN);
 
-        if (_pWindow == IntPtr.Zero) throw new SDLException();
-
-        _pRenderer = SDL_CreateRenderer(_pWindow, -1, SDL_RendererFlags.SDL_RENDERER_SOFTWARE);
-        if (_pRenderer == IntPtr.Zero) throw new SDLException();
+        _renderer = Renderer.Create(_window, -1, SDL_RendererFlags.SDL_RENDERER_SOFTWARE);
 
         _ball = new SDL_Rect
         {
@@ -66,10 +63,8 @@ public sealed class Pong : IDisposable
 
     public void Dispose()
     {
-        if (_pRenderer != IntPtr.Zero)
-            SDL_DestroyRenderer(_pRenderer);
-        if (_pWindow != IntPtr.Zero)
-            SDL_DestroyWindow(_pWindow);
+        _renderer.Destroy();
+        _window.Destroy();
 
         SDL_Quit();
     }
@@ -194,12 +189,12 @@ public sealed class Pong : IDisposable
 
     private void Render()
     {
-        SDL_SetRenderDrawColor(_pRenderer, 0x00, 0x00, 0x00, 0xff);
-        SDL_RenderClear(_pRenderer);
-        SDL_SetRenderDrawColor(_pRenderer, 0xff, 0xff, 0xff, 0xff);
-        SDL_RenderFillRect(_pRenderer, ref _ball);
-        SDL_RenderFillRect(_pRenderer, ref _paddle1);
-        SDL_RenderFillRect(_pRenderer, ref _paddle2);
-        SDL_RenderPresent(_pRenderer);
+        _renderer.SetDrawColor(0x00, 0x00, 0x00, 0xff);
+        _renderer.Clear();
+        _renderer.SetDrawColor(0xff, 0xff, 0xff, 0xff);
+        _renderer.FillRect(ref _ball);
+        _renderer.FillRect(ref _paddle1);
+        _renderer.FillRect(ref _paddle2);
+        _renderer.Present();
     }
 }
