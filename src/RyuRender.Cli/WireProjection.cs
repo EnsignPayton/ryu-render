@@ -9,6 +9,9 @@ public sealed class WireProjection : IDisposable
     private const int ScreenHeight = 640;
     private const int FocalLength = 4;
 
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Thread _renderThread;
+
     private readonly Vector3 _camPos = new(0, 0, -24);
 
     private readonly Vector3[] _cubePoints =
@@ -39,10 +42,18 @@ public sealed class WireProjection : IDisposable
             SDL_WindowFlags.SDL_WINDOW_SHOWN);
 
         _renderer = Renderer.Create(_window, -1, SDL_RendererFlags.SDL_RENDERER_SOFTWARE);
+
+        _renderThread = new Thread(() => RenderThread(_cts.Token));
     }
 
     public void Dispose()
     {
+        if (_renderThread.IsAlive)
+        {
+            _cts.Cancel();
+            _renderThread.Join();
+        }
+
         _renderer.Destroy();
         _window.Destroy();
 
@@ -51,6 +62,8 @@ public sealed class WireProjection : IDisposable
 
     public void Start()
     {
+        _renderThread.Start();
+
         var run = true;
         while (run)
         {
@@ -61,7 +74,16 @@ public sealed class WireProjection : IDisposable
                     run = false;
                 }
             }
+        }
 
+        _cts.Cancel();
+        _renderThread.Join();
+    }
+
+    private void RenderThread(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
             Update();
             Render();
 
